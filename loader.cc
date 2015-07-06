@@ -14,23 +14,6 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-class Point
-{
-public:
-  Point (double x_in, double y_in) :
-      x (x_in), y (y_in)
-  {
-  }
-  double x, y;
-};
-
-class RegionData
-{
-public:
-  string id;
-  vector<vector<Point> > boundaries;
-};
-
 bool
 fill_polygon (vector<Point> *pts, const kmldom::ElementPtr &polygon_el)
 {
@@ -72,20 +55,65 @@ fill_polygon (vector<Point> *pts, const kmldom::ElementPtr &polygon_el)
           cerr << "Nonzero altitude: " << coords.get_altitude () << endl;
           return false;
         }
-      pts->push_back (Point (coords.get_longitude (), coords.get_latitude ()));
+      double lon = coords.get_longitude ();
+      double lat = coords.get_latitude ();
+      Point new_pt = Point::create_gnomonic_from_spherical (lon, lat);
+      pts->push_back (new_pt);
+      // cout << lon << ", " << lat << " == " << new_pt.x << ", " << new_pt.y << endl;
     }
   return true;
 }
 
 bool
-load_borders (string filename)
+fill_region_data (RegionData *reg_data, const kmldom::ElementPtr &root_el)
+{
+  const kmldom::MultiGeometryPtr geom = kmldom::AsMultiGeometry (root_el);
+  if (geom)
+    {
+      unsigned geom_size = geom->get_geometry_array_size ();
+      unsigned ver_total = 0;
+      for (unsigned i = 0; i < geom_size; i++)
+        {
+          reg_data->boundaries.push_back (vector<Point> ());
+          vector<Point> &new_vec = *(reg_data->boundaries.end () - 1);
+          bool success = fill_polygon (&new_vec,
+                                       geom->get_geometry_array_at (i));
+          if (!success)
+            return false;
+          ver_total += new_vec.size ();
+        }
+      cout << reg_data->id << " has " << geom_size
+          << " polygons with the total number of " << ver_total << " vertices "
+          << endl;
+    }
+  else
+    {
+      reg_data->boundaries.push_back (vector<Point> ());
+      vector<Point> &new_vec = *(reg_data->boundaries.end () - 1);
+      bool success = fill_polygon (&new_vec, root_el);
+      if (!success)
+        return false;
+      cout << reg_data->id << " has one polygon with " << new_vec.size ()
+          << " vertices " << endl;
+    }
+
+  /* for(const vector<Point> &bdry : reg_data->boundaries)
+   {
+   for(const Point &pt: bdry)
+   cout << pt.x << ", " << pt.y << "   ";
+   }
+   cout << endl;*/
+  return true;
+}
+
+bool
+load_borders (vector<RegionData> *regs, string filename)
 {
   using kmlengine::KmlFile;
   using kmlengine::KmlFilePtr;
 
   std::ifstream csv_file (filename);
-
-  vector<RegionData> regs;
+  regs->clear ();
 
   while (true)
     {
@@ -93,18 +121,21 @@ load_borders (string filename)
       bool success = std::getline (csv_file, area_str);
       if (!success)
         break;
-      if (regs.size () == 0 && area_str == "Name,Code,Geometry")
+      if (regs->size () == 0 && area_str == "Name,Code,Geometry")
         continue;
       std::istringstream istr (area_str);
       string reg_id;
       for (int i = 0; i < 2; i++)
         {
-          bool success = std::getline (istr, reg_id, ',');
+          string cur_line;
+          bool success = std::getline (istr, cur_line, ',');
           if (!success)
             {
               cerr << "wrong line" << area_str << endl;
               return false;
             }
+          if (i == 1)
+            reg_id = cur_line;
         }
       string kml_str_quoted;
       success = std::getline (istr, kml_str_quoted);
@@ -123,24 +154,11 @@ load_borders (string filename)
           return false;
         }
       kmldom::ElementPtr root = kml_file->get_root ();
-      const kmldom::MultiGeometryPtr geom = kmldom::AsMultiGeometry (root);
-      if (geom)
-        {
-          unsigned geom_size = geom->get_geometry_array_size ();
-          cout << "MultiGeometry has " << geom_size << " polygons " << endl;
-          for (unsigned i = 0; i < geom_size; i++)
-            {
-
-            }
-        }
-      else
-        {
-          vector<Point> new_vec;
-          fill_polygon (&new_vec, root);
-          cerr << "Polygon with : " << new_vec.size() << " vertices " << endl;
-        }
-
+      regs->push_back (RegionData ());
+      RegionData &new_reg = *(regs->end () - 1);
+      new_reg.id = reg_id;
+      fill_region_data (&new_reg, root);
     }
-  cout << "Read data for " << regs.size () << " areas" << endl;
+  cout << "Read data for " << regs->size () << " areas" << endl;
   return true;
 }
