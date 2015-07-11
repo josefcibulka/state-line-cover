@@ -3,9 +3,9 @@ CXXFLAGS=-W -Wall -std=c++11 -pedantic -O2
 LIBS=-lkmlbase -lkmldom -lkmlengine
 INCLUDES=-I/usr/include
 
-HEADERS=loader.h line_finder.h max_set_list.h
+HEADERS=loader.h line_finder.h max_set_list.h region_data.h
 
-SRCS1=collifinder-main.cc loader.cc line_finder.cc max_set_list.cc
+SRCS1=collifinder-main.cc loader.cc line_finder.cc max_set_list.cc region_data.cc
 OBJS1 = $(SRCS1:.cc=.o)
 MAIN1=collifinder
 

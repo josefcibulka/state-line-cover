@@ -31,9 +31,6 @@ main (int argc, char *argv[])
       return 0;
     }
   vector<RegionData> regs;
-  // load_borders_csv (&regs, "data/KML-US_states-no_alabama.csv",1);
-  // load_borders_csv (&regs, "data/US_states_USE_THIS.csv",0);
-  // load_borders_kml (&regs, "data/gz_2010_us_040_00_500k.kml");
   string filename = string (argv[1]);
   bool success = load_borders (&regs, filename);
   if (!success)
@@ -41,6 +38,8 @@ main (int argc, char *argv[])
       cerr << "Failed to load data from " << filename << endl;
       return 0;
     }
+  for (RegionData &reg : regs)
+    reg.reduce_to_convex_hulls ();
   MaxSetList lines (regs);
   find_lines (&lines, regs);
   lines.print_sets ();
