@@ -29,9 +29,15 @@ public:
 struct RegionData
 {
 public:
-  std::string id;
+  std::string name;
   std::vector<std::vector<Point> > boundaries;
 };
+
+bool
+load_borders_csv (std::vector<RegionData> *regs, std::string filename);
+
+bool
+load_borders_kml (std::vector<RegionData> *regs, std::string filename);
 
 bool
 load_borders (std::vector<RegionData> *regs, std::string filename);

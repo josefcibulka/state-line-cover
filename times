@@ -1,0 +1,36 @@
+collineator
+
+real  50m22.751s
+user  50m8.116s
+sys 0m15.244s
+
+improvements such as do not try adding a set if last change was removal
+real  10m26.028s
+user  10m12.936s
+sys 0m12.808s
+
+vector with move-most-recent-superset-to-front
+real  7m11.669s
+user  6m58.840s
+sys 0m12.632s
+
+
+data from gz_2010...
+real  23m47.179s
+user  23m47.476s
+sys 0m4.688s
+
+
+-------------------------------------
+set_coverer
+
+
+real  2m35.558s
+user  2m35.496s
+sys 0m0.008s
+
+
+data from gz_2010... 
+real  3m37.055s
+user  3m36.864s
+sys 0m0.004s
