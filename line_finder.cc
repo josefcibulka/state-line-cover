@@ -16,11 +16,17 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
+SetOfRegions::SetOfRegions (const Point &p1_in, const Point &p2_in) :
+    p1 (p1_in), p2 (p2_in)
+{
+}
+
 SetOfRegions
 SetOfRegions::create_from_crossing_counts (
-    const std::vector<unsigned> &crossings)
+    const std::vector<unsigned> &crossings, const Point &p1_in,
+    const Point &p2_in)
 {
-  SetOfRegions result;
+  SetOfRegions result (p1_in, p2_in);
   for (unsigned i = 0; i < crossings.size (); i++)
     if (crossings[i] > 0)
       result.ids.push_back (i);
@@ -223,8 +229,9 @@ find_lines_from_center (MaxSetList *set_list, const Point &center,
 
   std::sort (event_list.begin (), event_list.end ());
 
-  SetOfRegions new_reg = SetOfRegions::create_from_crossing_counts (cross_cnts);
-  set_list->add_set (std::move (new_reg));
+/*  SetOfRegions
+  new_reg = SetOfRegions::create_from_crossing_counts (cross_cnts, center, Point::create_gnomonic_from_spherical(center.lon));
+  set_list->add_set (std::move (new_reg));*/
 
   for (const PointAngle &event : event_list)
     {
@@ -242,7 +249,7 @@ find_lines_from_center (MaxSetList *set_list, const Point &center,
             {
               cross_cnts[reg_id] += 2;
               SetOfRegions new_reg = SetOfRegions::create_from_crossing_counts (
-                  cross_cnts);
+                  cross_cnts, center, *event.pt);
               set_list->add_set (std::move (new_reg));
             }
           else if (event.event == PointAngle::kLeave)

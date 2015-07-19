@@ -5,9 +5,8 @@
 #include <vector>
 
 #include "line_finder.h" // just because of SetOfRegions
-#include "loader.h" // just because of RegionData
 
-class SeetOfRegions;
+class RegionData;
 
 class MaxSetList
 {
@@ -15,7 +14,7 @@ public:
   MaxSetList (const std::vector<RegionData> &regs);
   MaxSetList (const std::vector<std::string> &list_descs);
 
-  bool
+  static bool
   is_super (const std::vector<unsigned> &super_set,
             const std::vector<unsigned> &sub_set);
 

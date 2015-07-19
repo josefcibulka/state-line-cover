@@ -30,8 +30,8 @@ main (int argc, char *argv[])
       print_help ();
       return 0;
     }
-  vector<RegionData> regs;
   string filename = string (argv[1]);
+  vector<RegionData> regs;
   bool success = load_borders (&regs, filename);
   if (!success)
     {

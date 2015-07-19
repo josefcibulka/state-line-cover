@@ -4,7 +4,8 @@
 #include <algorithm>
 #include <map>
 #include "max_set_list.h"
-#include "loader.h"
+#include "line_finder.h" // just because of SetOfRegions
+#include "region_data.h"
 
 using std::vector;
 using std::string;
@@ -19,23 +20,37 @@ MaxSetList::MaxSetList (const vector<RegionData> &regs)
 
 MaxSetList::MaxSetList (const vector<string> &list_descs)
 {
+  vector<vector<Point> > coords;
   vector<vector<string> > items;
 
   for (const string &one_set_desc : list_descs)
     {
       std::istringstream istr (one_set_desc);
       vector<string> cur_set;
+      vector<Point> cur_coords;
       string cur_item;
+      for (int i = 0; i < 2; i++)
+        {
+          double lon, lat;
+          istr >> lon >> lat;
+          cur_coords.push_back (
+              Point::create_gnomonic_from_spherical (lon, lat));
+        }
+      while (istr.peek () == ' ' || istr.peek () == '\t')
+        istr.ignore (1);
+      assert(istr.good () && cur_coords.size () == 2);
       while (std::getline (istr, cur_item, ','))
         cur_set.push_back (cur_item);
       items.push_back (std::move (cur_set));
+      coords.push_back (cur_coords);
     }
 
   std::map<string, unsigned> name2id;
 
-  for (const vector<string> &one_set : items)
+  for (unsigned i = 0; i < items.size (); i++)
     {
-      SetOfRegions cur_set;
+      const vector<string> &one_set = items[i];
+      SetOfRegions cur_set (coords[i][0], coords[i][1]);
       for (const string &item : one_set)
         {
           auto it = name2id.find (item);
@@ -116,6 +131,9 @@ MaxSetList::print_sets ()
   cout << "The sets: " << endl;
   for (auto line : set_list)
     {
+      assert(line.p1.has_lon_lat && line.p2.has_lon_lat);
+      cout << line.p1.lon << " " << line.p1.lat << " ";
+      cout << line.p2.lon << " " << line.p2.lat << " ";
       bool first_output = true;
       for (unsigned id : line.ids)
         {

@@ -1,7 +1,10 @@
+#include <cstdlib>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <vector>
 #include <string>
+#include <algorithm>
 
 #include "max_set_list.h"
 
@@ -11,10 +14,82 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-vector<string> best_sets;
+class Results
+{
+public:
+  vector<std::pair<string, string>> best_sets;
+
+  void
+  add_set (const MaxSetList &max_set_list, const vector<bool> reg_used,
+           const vector<const SetOfRegions *> lines_used)
+  {
+    bool first_output = true;
+    std::ostringstream ostr_sets;
+    ostr_sets << "Unused: ";
+    for (unsigned reg = 0; reg < reg_used.size (); reg++)
+      if (!reg_used[reg])
+        {
+          if (!first_output)
+            ostr_sets << ",";
+          ostr_sets << max_set_list.names[reg];
+          first_output = false;
+        }
+    string new_set = ostr_sets.str ();
+    std::ostringstream ostr_lines;
+    ostr_lines << "<Placemark><name>" << new_set << "</name>";
+    ostr_lines << "<styleUrl>#default</styleUrl><MultiGeometry>";
+    for (const SetOfRegions *line : lines_used)
+      {
+        ostr_lines << "<Polygon><tessellate>1</tessellate>";
+        ostr_lines << "<outerBoundaryIs><LinearRing><coordinates>";
+        ostr_lines << line->p1.lon << "," << line->p1.lat << ",0 ";
+        ostr_lines << line->p2.lon << "," << line->p2.lat << ",0 ";
+        double lon1 = (
+            line->p1.lon >= 0 ? line->p1.lon - 180 : line->p1.lon + 180);
+        double lon2 = (
+            line->p2.lon >= 0 ? line->p2.lon - 180 : line->p2.lon + 180);
+        ostr_lines << lon1 << "," << -(line->p1.lat) << ",0 ";
+        ostr_lines << lon2 << "," << -(line->p2.lat) << ",0 ";
+        ostr_lines << line->p1.lon << "," << line->p1.lat << ",0 ";
+        ostr_lines << "</coordinates></LinearRing></outerBoundaryIs>";
+        ostr_lines << "</Polygon>";
+      }
+    ostr_lines << "</MultiGeometry></Placemark>";
+    string new_lines = ostr_lines.str ();
+    bool found = false;
+    for (const std::pair<string, string> &old_pair : best_sets)
+      if (old_pair.second == new_set)
+        found = true;
+    if (!found)
+      best_sets.push_back (std::make_pair (new_lines, new_set));
+  }
+
+  void
+  clear ()
+  {
+    best_sets.clear ();
+  }
+
+  void
+  print (std::ostream &ostr)
+  {
+    std::sort (best_sets.begin (), best_sets.end ());
+    /*for (const std::pair<string, string> &best_set : best_sets)
+      ostr << best_set.second << endl;*/
+    ostr
+        << "<kml xmlns=\"http://www.opengis.net/kml/2.2\"><Document><Style id=\"default\"><PolyStyle><outline>1</outline><fill>0</fill></PolyStyle></Style>";
+    for (const std::pair<string, string> &best_set : best_sets)
+      ostr << best_set.first << endl;
+    ostr << "</Document></kml>";
+  }
+};
+
+Results best_sets;
 vector<bool> reg_used;
+vector<const SetOfRegions *> lines_used;
 unsigned set_cnt;
 unsigned max_used_cnt = 0;
+unsigned lines_allowed = 4;
 
 void
 back_track (const MaxSetList &max_set_list, unsigned min_avail,
@@ -26,20 +101,7 @@ back_track (const MaxSetList &max_set_list, unsigned min_avail,
         best_sets.clear ();
       max_used_cnt = std::max (max_used_cnt, used_cnt);
       if (used_cnt >= max_used_cnt)
-        {
-          bool first_output = true;
-          std::ostringstream ostr;
-          ostr << "Unused: ";
-          for (unsigned reg = 0; reg < reg_used.size (); reg++)
-            if (!reg_used[reg])
-              {
-                if (!first_output)
-                  ostr << ",";
-                ostr << max_set_list.names[reg];
-                first_output = false;
-              }
-          best_sets.push_back (ostr.str ());
-        }
+        best_sets.add_set (max_set_list, reg_used, lines_used);
       return;
     }
   unsigned max_add = 0;
@@ -66,37 +128,71 @@ back_track (const MaxSetList &max_set_list, unsigned min_avail,
       unsigned used_cnt_new = used_cnt + new_used.size ();
 
       if (used_cnt_new + (dep_rem - 1) * max_add >= max_used_cnt)
-        back_track (max_set_list, i + 1, used_cnt_new, dep_rem - 1);
+        {
+          lines_used.push_back (&max_set_list.set_list[i]);
+          back_track (max_set_list, i + 1, used_cnt_new, dep_rem - 1);
+          lines_used.resize (lines_used.size () - 1);
+        }
 
       for (unsigned reg : new_used)
         reg_used[reg] = false;
     }
-  if (dep_rem == 4)
+  if (dep_rem == lines_allowed - 1)
     cerr << min_avail << "\r" << std::flush;
 }
 
-int
-main (void)
+void
+print_help ()
 {
+  cerr
+      << "This program finds maximal sets of collinear regions (countries, states, ...)"
+      << endl;
+  cerr
+      << "Exactly one argument is required: the file with the region boundaries."
+      << endl;
+  cerr << "The output is written to stdout." << endl;
+}
+
+int
+main (int argc, char *argv[])
+{
+  if (argc < 2 || argc > 3)
+    {
+      print_help ();
+      return 0;
+    }
+  string filename = string (argv[1]);
+  if (argc == 3)
+    lines_allowed = atoi (argv[2]);
+
+  cerr << "Using collinear sets of states from file \"" << filename
+      << "\". Trying to cover them with " << lines_allowed << " lines." << endl;
+
+  std::ifstream file_in (filename.c_str (), std::ifstream::in);
   vector<string> input_lines;
   string read_line;
-  while (std::getline (std::cin, read_line))
+  while (std::getline (file_in, read_line))
     if (read_line.length () > 0)
       input_lines.push_back (read_line);
 
-  cout << "Read " << input_lines.size () << " lines." << endl;
+  cerr << "Read " << input_lines.size () << " lines." << endl;
 
   MaxSetList max_set_list (input_lines);
+  if (lines_allowed == 0 || lines_allowed > max_set_list.set_list.size ())
+    {
+      cerr << "Unexpected number of lines: " << lines_allowed << endl;
+      print_help ();
+      return 0;
+    }
 
   set_cnt = max_set_list.set_list.size ();
   unsigned reg_cnt = max_set_list.names.size ();
   reg_used.resize (reg_cnt, false);
 
-  back_track (max_set_list, 0, 0, 5);
+  back_track (max_set_list, 0, 0, lines_allowed);
 
-  cout << "Highest number of regions crossed by four lines is " << max_used_cnt
-      << " out of " << reg_cnt << endl;
-  for (const string &best_set : best_sets)
-    cout << best_set << endl;
+ /* cout << "Highest number of regions crossed by four lines is " << max_used_cnt
+      << " out of " << reg_cnt << endl;*/
+  best_sets.print (cout);
   return 0;
 }

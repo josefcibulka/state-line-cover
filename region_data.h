@@ -16,7 +16,7 @@ public:
     double tancl = tan (colat_rad);
     double x = tancl * sin (lon_rad);
     double y = tancl * cos (lon_rad);
-    return Point (x, y);
+    return Point (x, y, lon, lat);
   }
 
   static double
@@ -26,9 +26,16 @@ public:
   }
 
   double x, y;
+  double lon = 0.0, lat = 0.0;
+  bool has_lon_lat = false;
 
   Point (double x_in, double y_in) :
       x (x_in), y (y_in)
+  {
+  }
+
+  Point (double x_in, double y_in, double lon_in, double lat_in) :
+      x (x_in), y (y_in), lon (lon_in), lat (lat_in), has_lon_lat (true)
   {
   }
 

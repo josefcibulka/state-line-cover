@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "loader.h"
+#include "region_data.h"
 
 class MaxSetList;
 
@@ -15,7 +16,14 @@ public:
   std::vector<unsigned> ids;
 
   static SetOfRegions
-  create_from_crossing_counts (const std::vector<unsigned> &crossings);
+  create_from_crossing_counts (const std::vector<unsigned> &crossings,
+                               const Point &p1_in, const Point &p2_in);
+
+  SetOfRegions (const Point &p1_in, const Point &p2_in);
+
+  Point p1, p2;
+
+private:
 };
 
 void
