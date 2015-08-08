@@ -42,15 +42,8 @@ public:
       {
         ostr_lines << "<Polygon><tessellate>1</tessellate>";
         ostr_lines << "<outerBoundaryIs><LinearRing><coordinates>";
-        ostr_lines << line->p1.lon << "," << line->p1.lat << ",0 ";
-        ostr_lines << line->p2.lon << "," << line->p2.lat << ",0 ";
-        double lon1 = (
-            line->p1.lon >= 0 ? line->p1.lon - 180 : line->p1.lon + 180);
-        double lon2 = (
-            line->p2.lon >= 0 ? line->p2.lon - 180 : line->p2.lon + 180);
-        ostr_lines << lon1 << "," << -(line->p1.lat) << ",0 ";
-        ostr_lines << lon2 << "," << -(line->p2.lat) << ",0 ";
-        ostr_lines << line->p1.lon << "," << line->p1.lat << ",0 ";
+        for(SphericalPoint pt: line->geodesic)
+          ostr_lines << pt.lon << "," << pt.lat << ",0 ";
         ostr_lines << "</coordinates></LinearRing></outerBoundaryIs>";
         ostr_lines << "</Polygon>";
       }
@@ -168,16 +161,23 @@ main (int argc, char *argv[])
   cerr << "Using collinear sets of states from file \"" << filename
       << "\". Trying to cover them with " << lines_allowed << " lines." << endl;
 
-  std::ifstream file_in (filename.c_str (), std::ifstream::in);
-  vector<string> input_lines;
-  string read_line;
-  while (std::getline (file_in, read_line))
-    if (read_line.length () > 0)
-      input_lines.push_back (read_line);
+  vector<MaxSetList::SingleSet> single_sets;
 
-  cerr << "Read " << input_lines.size () << " lines." << endl;
+  std::unique_ptr<LoaderVisitorInterface> loader_visitor(
+        new LoaderVisitorMaxSetList(&single_sets));
+  std::unique_ptr<Loader> loader(new Loader(loader_visitor.get()));
+  bool success = loader->load_borders(filename);
+  loader.reset(nullptr); // destroy loader first
+  loader_visitor.reset(nullptr); // then the visitor
+  cout << "Read " << single_sets.size() << " collinear sets" << endl;
 
-  MaxSetList max_set_list (input_lines);
+  if (!success)
+  {
+     cerr << "Failed to load data from " << filename << endl;
+     return 0;
+  }
+
+  MaxSetList max_set_list (single_sets);
   if (lines_allowed == 0 || lines_allowed > max_set_list.set_list.size ())
     {
       cerr << "Unexpected number of lines: " << lines_allowed << endl;

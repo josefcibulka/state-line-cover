@@ -141,7 +141,7 @@ public:
         kmldom::PlacemarkPtr placemark = factory->CreatePlacemark ();
         const auto &reg = reg_pair.second;
         placemark->set_name (reg.name);
-        placemark->set_extendeddata(reg.ext_data);
+        placemark->set_extendeddata (reg.ext_data);
         placemark->set_geometry (reg.geom);
         docu->add_feature (placemark);
       }
@@ -284,6 +284,27 @@ get_file_contents (string filename)
 }
 
 bool
+process_placemark (RegionLineMapKml *reg_map, const kmldom::ElementPtr &elem,
+                   string reg_name)
+{
+  const kmldom::PlacemarkPtr pm_el = kmldom::AsPlacemark (elem);
+  if (!pm_el)
+    {
+      cerr << "Not a Placemark: " << elem->get_char_data () << endl;
+      return false;
+    }
+
+  RegionData new_reg;
+  if (reg_name == "")
+    reg_name = pm_el->get_name ();
+  new_reg.name = reg_name;
+  const kmldom::ExtendedDataPtr ext_data = pm_el->get_extendeddata ();
+  RegionLine *reg_line = reg_map->get_geom_or_create (reg_name, ext_data);
+  bool success = fill_region_data (reg_line, pm_el->get_geometry ());
+  return success;
+}
+
+bool
 load_borders_kml (RegionLineMapKml *reg_map, string filename)
 {
   using kmlengine::KmlFile;
@@ -321,53 +342,95 @@ load_borders_kml (RegionLineMapKml *reg_map, string filename)
     }
   for (unsigned i = 0; i < docu_el->get_feature_array_size (); i++)
     {
-      const kmldom::FolderPtr fol_el = kmldom::AsFolder (
-          docu_el->get_feature_array_at (i));
-      if (!fol_el)
+      const kmldom::FeaturePtr feat_el = docu_el->get_feature_array_at (i);
+      const kmldom::FolderPtr fol_el = kmldom::AsFolder (feat_el);
+      if (fol_el)
         {
-          cerr << "Not a Folder: "
-              << docu_el->get_feature_array_at (i)->get_char_data () << endl;
-          return false;
-        }
-      string reg_name;
-      if (fol_el->get_feature_array_size () == 1)
-        reg_name = fol_el->get_name ();
-      for (unsigned j = 0; j < fol_el->get_feature_array_size (); j++)
-        {
-          const kmldom::PlacemarkPtr pm_el = kmldom::AsPlacemark (
-              fol_el->get_feature_array_at (j));
-          if (!pm_el)
+          string reg_name;
+          if (fol_el->get_feature_array_size () == 1)
+            reg_name = fol_el->get_name ();
+          for (unsigned j = 0; j < fol_el->get_feature_array_size (); j++)
             {
-              cerr << "Not a Placemark: "
-                  << fol_el->get_feature_array_at (j)->get_char_data () << endl;
-              return false;
+              kmldom::FeaturePtr feat_el = fol_el->get_feature_array_at (j);
+              bool success = process_placemark (reg_map, feat_el, reg_name);
+              if (!success)
+                return false;
             }
 
-          RegionData new_reg;
-          if (fol_el->get_feature_array_size () > 1)
-            reg_name = pm_el->get_name ();
-          new_reg.name = reg_name;
-          const kmldom::ExtendedDataPtr ext_data = pm_el->get_extendeddata ();
-          RegionLine *reg_line = reg_map->get_geom_or_create (reg_name,
-                                                              ext_data);
-          bool success = fill_region_data (reg_line, pm_el->get_geometry ());
-          if (!success)
-            return false;
+        }
+      else
+        {
+          const kmldom::PlacemarkPtr pm_el = kmldom::AsPlacemark (feat_el);
+          if (pm_el)
+            process_placemark (reg_map, feat_el, "");
+          else
+            {
+              cerr << "Neither a Folder nor a Placemark: "
+                  << feat_el->get_char_data () << endl;
+              return false;
+            }
         }
     }
   return true;
 }
 
-int
-main (void)
+bool
+load_borders (string filename, std::ostream &ostr)
 {
-  /*RegionLineMapCsv reg_map;
-   load_borders_csv (&reg_map, "data/Europe_SWAsia.csv");*/
-  RegionLineMapKml reg_map;
-  load_borders_kml (&reg_map, "data/Europe_SWAsia.kml");
+  if (filename.length () < 4)
+    return false;
+  string suffix = filename.substr (filename.length () - 3);
+  if (suffix == "csv")
+    {
+      RegionLineMapCsv reg_map;
+      load_borders_csv (&reg_map, filename);
+      cerr << "Read data for " << reg_map.reg_map.size () << " regions" << endl;
+      reg_map.print_big_kml (ostr);
+    }
+  else if (suffix == "kml")
+    {
+      RegionLineMapKml reg_map;
+      load_borders_kml (&reg_map, filename);
+      cerr << "Read data for " << reg_map.reg_map.size () << " regions" << endl;
+      reg_map.print_big_kml (ostr);
+    }
+  else
+    return false;
 
-  cerr << "Read data for " << reg_map.reg_map.size () << " regions" << endl;
-  reg_map.print_big_kml (cout);
+  return true;
+}
+
+void
+print_help ()
+{
+  cerr << "\n"
+      << " This program combines placemarks with identical name into a single placemark with multigeometry."
+      << endl;
+  cerr
+      << " This is useful for the HIU data (https://hiu.state.gov/data/data.aspx) "
+          "where, for example, Finland has more than ten thousand placemarks "
+          "(every island has its own placemark).\n" << endl;
+  cerr << " Exactly two arguments are required:\n"
+      "1) The input kml or csv file.\n"
+      "2) Output kml file." << endl;
+}
+
+int
+main (int argc, char *argv[])
+{
+  if (argc != 3)
+    {
+      print_help ();
+      return 0;
+    }
+  std::ofstream ostr;
+  ostr.open (argv[2]);
+  if (!ostr.good ())
+    {
+      cerr << "Failed to open output file." << endl;
+      return 0;
+    }
+  load_borders (string (argv[1]), ostr);
 
   return 0;
 }

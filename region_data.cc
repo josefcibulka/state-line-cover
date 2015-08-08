@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <algorithm>
 #include <iostream>
 
@@ -14,6 +15,9 @@ using std::endl;
 void
 RegionData::reduce_to_convex_hulls ()
 {
+  std::size_t boundaries_size_orig = 0;
+  for (const vector<Point> &bdry : boundaries)
+    boundaries_size_orig += bdry.size ();
   vector<vector<Point> > new_boundaries;
   for (vector<Point> &bdry : boundaries)
     {
@@ -51,4 +55,10 @@ RegionData::reduce_to_convex_hulls ()
       new_boundaries.push_back (std::move (hull));
     }
   boundaries = std::move (new_boundaries);
+  std::size_t boundaries_size = 0;
+  for (const vector<Point> &bdry : boundaries)
+    boundaries_size += bdry.size ();
+  cout << "After the reduction to convex hulls, " << name << " kept "
+      << boundaries_size << " out of the " << boundaries_size_orig
+      << " original vertices in " << boundaries.size () << " polygons." << endl;
 }

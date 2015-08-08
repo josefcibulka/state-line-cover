@@ -9,7 +9,7 @@ SRCS1=collifinder-main.cc loader.cc line_finder.cc max_set_list.cc region_data.c
 OBJS1 = $(SRCS1:.cc=.o)
 MAIN1=collifinder
 
-SRCS2=set_coverer-main.cc max_set_list.cc line_finder.cc
+SRCS2=set_coverer-main.cc loader.cc max_set_list.cc line_finder.cc
 OBJS2 = $(SRCS2:.cc=.o)
 MAIN2=set_coverer
 
