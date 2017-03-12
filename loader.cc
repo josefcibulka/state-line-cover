@@ -130,7 +130,7 @@ bool Loader::load_borders_csv(string filename)
    while (true)
    {
       string area_str;
-      bool success = std::getline(csv_file, area_str);
+      bool success = bool(std::getline(csv_file, area_str));
       if (!success)
          break;
       std::istringstream istr(area_str);
@@ -160,7 +160,7 @@ bool Loader::load_borders_csv(string filename)
       for (int i = 0; i < where_is_geo; i++)
       {
          string cur_line;
-         bool success = std::getline(istr, cur_line, ',');
+         bool success = bool(std::getline(istr, cur_line, ','));
          if (!success)
          {
             cerr << "wrong line" << area_str << endl;
@@ -169,7 +169,7 @@ bool Loader::load_borders_csv(string filename)
          if (i == where_is_name)
             reg_id = cur_line;
       }
-      success = std::getline(istr, kml_str_quoted);
+      success = bool(std::getline(istr, kml_str_quoted));
       if (!success || kml_str_quoted.length() <= 1 || kml_str_quoted[0] != '"'
             || kml_str_quoted[kml_str_quoted.length() - 1] != '"')
       {

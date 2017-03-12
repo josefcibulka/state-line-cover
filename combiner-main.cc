@@ -204,7 +204,7 @@ load_borders_csv (RegionLineMapCsv *reg_map, string filename)
   for (unsigned lines_read = 0;; lines_read++)
     {
       string area_str;
-      bool success = std::getline (csv_file, area_str);
+      bool success = bool(std::getline (csv_file, area_str));
       if (!success)
         break;
       std::istringstream istr (area_str);
@@ -238,7 +238,7 @@ load_borders_csv (RegionLineMapCsv *reg_map, string filename)
       for (int i = 0; i < where_is_geo; i++)
         {
           string cur_column;
-          bool success = std::getline (istr, cur_column, ',');
+          bool success = bool(std::getline (istr, cur_column, ','));
           if (!success)
             {
               cerr << "wrong line: " << area_str << endl;
@@ -249,7 +249,7 @@ load_borders_csv (RegionLineMapCsv *reg_map, string filename)
             reg_id = cur_column;
         }
       string kml_str_quoted;
-      success = std::getline (istr, kml_str_quoted);
+      success = bool(std::getline (istr, kml_str_quoted));
       if (!success || kml_str_quoted.length () <= 1 || kml_str_quoted[0] != '"'
           || kml_str_quoted[kml_str_quoted.length () - 1] != '"')
         {
